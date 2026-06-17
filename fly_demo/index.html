@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>COSLEEP | 随心飞</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app">
+    <!-- 背景图层（双缓冲交叉淡入） -->
+    <div class="bg-layer bg-layer--a active" id="bg-a" style="background-image:url('img/bg1.png')"></div>
+    <div class="bg-layer bg-layer--b" id="bg-b"></div>
+
+    <!-- PAG 动画层（半透明叠加） -->
+    <canvas id="pag-canvas" class="pag-canvas"></canvas>
+    <div class="pag-fallback" id="pag-fallback"></div>
+    <div class="breathing-toast" id="breathing-toast" hidden>你似乎有些疲惫，来一起放松一会儿</div>
+
+    <!-- 顶部标题 + 问候信息 -->
+    <header class="header">
+      <div class="header-top">
+        <h1>COSLEEP | 随心飞</h1>
+        <div class="time-toggle-wrap">
+          <select id="period-select" class="period-select" aria-label="选择时段">
+            <option value="凌晨时">凌晨时 (04:00-05:00)</option>
+            <option value="拂晓时">拂晓时 (05:00-09:00)</option>
+            <option value="早上好">早上好 (09:00-13:00)</option>
+            <option value="下午好">下午好 (13:00-17:00)</option>
+            <option value="黄昏时">黄昏时 (17:00-18:00)</option>
+            <option value="暮光里">暮光里 (18:00-19:00)</option>
+            <option value="晚上好">晚上好 (19:00-23:00)</option>
+            <option value="星空下">星空下 (23:00-04:00)</option>
+          </select>
+          <div class="scene-switch" aria-label="白天晚上场景">
+            <label class="scene-switch-option" title="白天">
+              <input type="radio" name="practice-scene" value="day" checked>
+              <span aria-label="白天">☀</span>
+            </label>
+            <label class="scene-switch-option" title="晚上">
+              <input type="radio" name="practice-scene" value="sleep">
+              <span aria-label="晚上">☾</span>
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="greeting-info">
+        <div class="greeting-text" id="greeting-text">下午好</div>
+        <div class="greeting-date" id="greeting-date">2026年5月20日 星期三</div>
+        <div class="greeting-weather" id="greeting-weather">多云</div>
+      </div>
+    </header>
+
+    <!-- 中间偏下：用户信息 + 心情 -->
+    <div class="center-content">
+      <div class="profile">
+        <div class="avatar" id="avatar">
+          <svg width="80" height="80" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="40" cy="40" r="40" fill="#8ba4c4"/>
+            <circle cx="40" cy="30" r="13" fill="#dce8f5"/>
+            <ellipse cx="40" cy="58" rx="20" ry="15" fill="#dce8f5"/>
+          </svg>
+        </div>
+        <div class="profile-info">
+          <span class="profile-name" id="user-name">胡萝卜须</span>
+          <p class="profile-desc" id="status-desc">小飞机正在自由飞行，等待手表数据或手动选择情绪状态。</p>
+        </div>
+      </div>
+
+      <div class="divider" aria-hidden="true">
+        <svg viewBox="0 0 120 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M0 8h40" stroke="currentColor" stroke-width="0.5" opacity="0.4"/>
+          <path d="M48 8c2-4 4-6 6-6s4 2 6 6-4 6-6 6-4-2-6-6z" fill="currentColor" opacity="0.6"/>
+          <path d="M54 8c1.5-3 3-4.5 4.5-4.5s3 1.5 4.5 4.5-3 4.5-4.5 4.5S55.5 11 54 8z" fill="currentColor"/>
+          <path d="M80 8h40" stroke="currentColor" stroke-width="0.5" opacity="0.4"/>
+        </svg>
+      </div>
+
+      <div class="metrics">
+        <div class="metric">
+          <div class="metric-value">
+            <span class="metric-number" id="heart-rate">83</span>
+            <span class="metric-unit">bpm</span>
+          </div>
+          <span class="metric-label">静息心率</span>
+        </div>
+
+        <div class="metric">
+          <div class="metric-value">
+            <span class="metric-number" id="hrv">32</span>
+            <span class="metric-unit">ms</span>
+          </div>
+          <span class="metric-label">心率变异性</span>
+        </div>
+
+        <div class="metric metric--emotion">
+          <div class="emotion-icon" id="emotion-icon" aria-hidden="true">✈️</div>
+          <div class="emotion-select-wrap">
+            <select id="emotion-select" class="emotion-select" aria-label="情绪状态">
+              <option value="default" selected>默认 · 自由飞行</option>
+              <option value="tired">疲倦 · 筋疲力尽</option>
+              <option value="calm">平静 · 身心放松</option>
+              <option value="satisfied">满足 · 舒适安稳</option>
+              <option value="happy">高兴 · 心情愉悦</option>
+              <option value="excited">兴奋 · 活力充沛</option>
+              <option value="tense">紧张 · 身心绷紧</option>
+              <option value="anxious">焦虑 · 心绪不宁</option>
+              <option value="depressed">沮丧 · 情绪低落</option>
+            </select>
+          </div>
+          <span class="metric-label">情绪状态</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 底部按钮 -->
+    <footer class="bottom-panel">
+      <div class="action-buttons">
+        <button class="btn btn-insight" id="btn-insight">
+          <span class="btn-orb" id="btn-insight-icon" aria-hidden="true">✈️</span>
+          身心状态解读
+        </button>
+      </div>
+    </footer>
+
+    <!-- 双音频元素用于交叉淡入淡出（隐藏） -->
+    <audio id="audio-a" loop preload="auto" style="display:none"></audio>
+    <audio id="audio-b" loop preload="auto" style="display:none"></audio>
+  </div>
+
+  <script async src="vendor/libpag/libpag.min.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
