@@ -1,0 +1,82 @@
+# Reasonix configuration.
+# Resolution order: flag > ./reasonix.toml > ~/AppData/Roaming/reasonix/config.toml > built-in defaults.
+# Fields marked user/global only are not overridden by ./reasonix.toml.
+# Secrets come from the environment via api_key_env; never put keys here.
+
+config_version = 3   # schema marker for diagnostics; old versions may ignore it
+default_model = "deepseek-flash"
+# language      = "zh"   # ui/model language; empty = auto-detect from $LANG / $REASONIX_LANG
+
+[agent]
+# system_prompt = """..."""   # omit to use the built-in prompt for this version
+# system_prompt_file = "prompts/system.md"   # overrides system_prompt when set
+temperature       = 0.0
+# reasoning_language = "zh"   # visible reasoning language: auto|zh|en
+# auto_plan_classifier = "deepseek-flash"   # optional; only used for borderline tasks
+soft_compact_ratio  = 0.5   # notice only; keeps cache-first prefix intact
+compact_ratio       = 0.8   # try compacting when prompt reaches this fraction
+compact_force_ratio = 0.9   # force compacting at this high-water mark
+# keep                = ["errors"]   # compaction keep policy: errors, user_marked
+# recent_keep         = 2   # minimum recent messages kept verbatim
+cold_resume_prune   = true   # elide stale tool results when reopening a session past the provider cache window
+# planner_model = "deepseek-pro"   # optional: enable two-model collaboration
+# subagent_model = "deepseek-pro"   # optional default for runAs=subagent skills
+# subagent_models = { review = "deepseek-pro", security_review = "deepseek-pro" }   # per-skill overrides
+# subagent_effort = "high"   # optional default effort for subagents
+# subagent_efforts = { review = "max", task = "high" }   # per-tool/skill effort overrides
+# output_style = "explanatory"   # explanatory | learning | concise | custom; empty = default
+
+[tools]
+enabled = []   # empty = all built-in tools
+bash_timeout_seconds = 120   # foreground safety cap; set 0 for no tool-local cap
+
+[tools.background_jobs]
+stalled_warning_seconds = 900   # warn once per background job after this many quiet seconds; 0 disables
+
+[lsp]
+enabled = true   # language server tools; servers launch lazily when used
+# [lsp.servers.go]
+# command = "gopls"
+# args = []
+# extensions = [".go"]
+
+[skills]
+# paths = ["~/my-skills", "../shared/skills"]   # extra custom skill roots
+# excluded_paths = ["~/.agents/skills"]   # hide convention roots without deleting folders
+# max_depth = 3   # nested scan depth; set 1 for legacy root-only discovery
+# disabled_skills = ["review"]   # hide noisy or unwanted skills
+
+[permissions]
+# Per-call gating. mode = writer fallback when no rule matches: ask|allow|deny.
+# Readers always default to allow. Precedence: deny > ask > allow > fallback.
+# Rules are "Tool" or "Tool(specifier)"; e.g. Bash(go test:*), Edit(src/**).
+mode  = "ask"
+# deny = ["Bash(rm -rf*)", "Bash(git push*)"]   # hard-blocked in every mode
+allow = ["Bash(cd fly_demo && git log --oneline -10 2>$null; echo \"---STATUS---\"; git status)", "Bash(cd fly_demo; git log --oneline -10)", "Bash(node -c:*)", "Bash(cd fly_demo; npx http-server -p 8080 --cors -o 2>$null)", "Bash(Start-Sleep -Seconds 2; curl -s http://localhost:8080/index.html -o $null; if ($?) { echo \"Server is running at http://localhost:8080\" } else { echo \"Server not reachable\" })", "Bash(Start-Sleep -Seconds 3; try { $r = Invoke-WebRequest -Uri \"http://localhost:8080/index.html\" -UseBasicParsing; if ($r.StatusCode -eq 200) { echo \"Server is running at http://localhost:8080 ✓\" } } catch { echo \"Server not reachable: $_\" })", "Bash(try { $r = Invoke-WebRequest -Uri \"http://localhost:8080/pag/%E6%AD%A3%E5%B8%B8%E8%BD%A8%E8%BF%B9/3.pag\" -UseBasicParsing; echo \"PAG: $($r.StatusCode) ($($r.Content.Length) bytes)\" } catch { echo \"PAG Error: $_\" })", "Bash(try { $r = Invoke-WebRequest -Uri \"http://localhost:8080/pag/%E6%AD%A3%E5%B8%B8%E8%BD%A8%E8%BF%B9\" -UseBasicParsing; echo \"Dir check: $($r.StatusCode)\" } catch { echo \"Error: $_\" })", "Bash(try { $r = Invoke-WebRequest -Uri \"http://localhost:8080/pag/%E6%AD%A3%E5%B8%B8%E8%BD%A8%E8%BF%B9/\" -UseBasicParsing; echo \"Dir check with /: $($r.StatusCode)\" } catch { echo \"Error: $_\" })", "Bash(try { $r = Invoke-WebRequest -Uri \"http://localhost:8080/pag/%E6%AD%A3%E5%B8%B8%E8%BD%A3%E8%BF%B9/3.pag\" -UseBasicParsing; echo \"PAG check: $($r.StatusCode)\" } catch { echo \"Error: $_\" })", "kill_shell", "Bash($port = 8080; $dir = (Resolve-Path .\\fly_demo).Path; $code = @\"\nconst http = require('http');\nconst fs = require('fs');\nconst path = require('path');\nconst root = '$($dir.Replace('\\','/'))';\nhttp.createServer((req, res) => {\n  // 解码 URL 中的中文字符\n  let decoded = decodeURIComponent(req.url);\n  let f = path.join(root, decoded === '/' ? '/index.html' : decoded);\n  fs.readFile(f, (err, data) => {\n    if (err) { res.writeHead(404); res.end('Not Found: ' + f); return; }\n    let ext = path.extname(f);\n    let ct = { '.html':'text/html','.js':'application/javascript','.css':'text/css','.png':'image/png','.jpg':'image/jpeg','.mp3':'audio/mpeg','.wasm':'application/wasm','.pag':'application/octet-stream' }[ext] || 'text/plain';\n    res.writeHead(200, { 'Content-Type': ct, 'Access-Control-Allow-Origin': '*' });\n    res.end(data);\n  });\n}).listen($port, () => console.log('Server: http://localhost:' + $port));\n\"@; node -e $code)", "Bash(Start-Sleep -Seconds 2; try { $r = Invoke-WebRequest -Uri \"http://localhost:8080/pag/%E6%AD%A3%E5%B8%B8%E8%BD%A8%E8%BF%B9/3.pag\" -UseBasicParsing; echo \"PAG: $($r.StatusCode) ($($r.Content.Length) bytes) - $($r.Content.GetType())\" } catch { echo \"Error: $_\" })", "Bash(echo \"=== WASM ===\"; try { $r = Invoke-WebRequest -Uri \"http://localhost:8080/vendor/libpag/libpag.wasm\" -UseBasicParsing; echo \"$($r.StatusCode) ($($r.Content.Length) bytes)\" } catch { echo \"Error\" }\necho \"=== 音频 ===\"; try { $r = Invoke-WebRequest -Uri \"http://localhost:8080/audio/%E9%BB%98%E8%AE%A4/Dreaming%20Softly.mp3\" -UseBasicParsing; echo \"$($r.StatusCode) ($($r.Content.Length) bytes)\" } catch { echo \"Error\" }\necho \"=== 背景图 ===\"; try { $r = Invoke-WebRequest -Uri \"http://localhost:8080/img/bg1.png\" -UseBasicParsing; echo \"$($r.StatusCode) ($($r.Content.Length) bytes)\" } catch { echo \"Error\" }\necho \"=== HTML ===\"; try { $r = Invoke-WebRequest -Uri \"http://localhost:8080/index.html\" -UseBasicParsing; echo \"$($r.StatusCode) ($($r.Content.Length) bytes)\" } catch { echo \"Error\" })"]
+# ask = ["Edit(src/**)"]   # force a prompt even if otherwise allowed
+
+[sandbox]
+# Confine tool blast radius. File-writers (write_file/edit_file/multi_edit/move_file)
+# may only write under workspace_root (empty = current dir) and allow_write extras.
+# bash = "enforce" (default) jails each command in an OS sandbox (macOS now;
+# graceful fallback elsewhere); "off" disables it. network allows egress.
+# workspace_root = ""            # default: current working directory
+# allow_write = ["/tmp"]          # extra dirs writers may also modify
+bash    = "enforce"
+network = true
+
+[statusline]
+# A custom status line: a command whose first stdout line replaces the built-in
+# data row. It receives {"model","contextUsed","contextWindow","cwd"} as JSON on stdin.
+# command = "my-statusline.sh"
+
+# External MCP servers. type: "stdio" (default, a subprocess) | "http" | "sse".
+# ${VAR} / ${VAR:-default} are expanded from the environment in command/args/env/url/headers.
+# [[plugins]]
+# name    = "example"
+# command = "reasonix-plugin-example"
+# [[plugins]]                                  # a remote server over Streamable HTTP
+# name    = "stripe"
+# type    = "http"
+# url     = "https://mcp.stripe.com"
+# headers = { Authorization = "Bearer ${STRIPE_KEY}" }
