@@ -6,54 +6,63 @@
     default: {
       icon: "✈️",
       desc: "小飞机正在自由飞行，等待手表数据或手动选择情绪状态。",
+      insight: "暂无有效数据，请先连接手表或选择情绪状态",
       pagDir: "正常轨迹",
       audioDir: "默认"
     },
     tired: {
       icon: "😴",
       desc: "此刻的你有些疲倦，身体像是在提醒你慢下来，给自己一点恢复的空间。",
+      insight: "当前以疲倦为主，身体能量偏低，适合休息或进行放松呼吸",
       pagDir: "疲惫悲伤",
       audioDir: "疲惫悲伤"
     },
     calm: {
       icon: "😌",
       desc: "此刻的你平静而放松，呼吸和节奏都比较稳定，适合保持当下的舒适状态。",
+      insight: "当前身心状态平稳，自主神经活动协调，建议保持",
       pagDir: "平静专注",
       audioDir: "平静专注"
     },
     satisfied: {
       icon: "☺️",
       desc: "此刻的你感到满足而安稳，内在状态柔和，适合让这份舒适自然延续。",
+      insight: "当前处于满足状态，身心舒适安稳，适合延续此刻节奏",
       pagDir: "平静专注",
       audioDir: "平静专注"
     },
     happy: {
       icon: "😊",
       desc: "此刻的你心情愉悦，状态轻快明亮，像小飞机正轻盈地穿过云层。",
+      insight: "当前情绪积极愉悦，身心状态良好，可配合呼吸练习保持稳定",
       pagDir: "兴奋高兴",
       audioDir: "兴奋高兴"
     },
     excited: {
       icon: "😆",
       desc: "此刻的你比较兴奋，能量更高、节奏更快，可以通过呼吸让身体慢慢回到稳定。",
+      insight: "当前唤醒水平偏高，建议进行均等呼吸练习帮助身心回到平衡",
       pagDir: "兴奋高兴",
       audioDir: "兴奋高兴"
     },
     tense: {
       icon: "😬",
       desc: "此刻的你有些紧张，身体可能处在绷紧状态，适合放慢呼吸、逐步松开压力。",
+      insight: "当前身心偏紧绷，交感神经活跃，适合进行4-7-8呼吸练习",
       pagDir: "焦虑紧张",
       audioDir: "焦虑紧张"
     },
     anxious: {
       icon: "😟",
       desc: "此刻的你有些焦虑，思绪可能变得密集，可以先跟随节奏稳定呼吸。",
+      insight: "当前焦虑水平偏高，思绪较多，建议以呼吸练习帮助稳定心绪",
       pagDir: "焦虑紧张",
       audioDir: "焦虑紧张"
     },
     depressed: {
       icon: "😔",
       desc: "此刻的你可能有些沮丧或低落，可以先允许自己停一停，再慢慢找回稳定感。",
+      insight: "当前情绪偏低落，身心可能感到沉重，适合轻柔的呼吸调整",
       pagDir: "疲惫悲伤",
       audioDir: "疲惫悲伤"
     }
@@ -126,6 +135,7 @@
   var currentPAGUrl = null;
   var currentEmotion = emotionSelect.value;
   var pagSwitchTimer = null;
+  var pagLoadGen = 0; // 递增计数器，用于丢弃过期请求结果
 
   // 背景图双缓冲
   var activeBgLayer = "a"; // 当前显示的是哪层
@@ -300,6 +310,9 @@
       return;
     }
 
+    // 递增 generation，当前请求完成后检查是否已被后续请求替代
+    var gen = ++pagLoadGen;
+
     console.log("加载 PAG:", url);
     fetch(url)
       .then(function (res) {
@@ -308,10 +321,13 @@
         return res.arrayBuffer();
       })
       .then(function (buffer) {
+        if (gen !== pagLoadGen) { console.log("PAG 请求已过期，丢弃"); return null; }
         console.log("PAG 文件大小:", buffer.byteLength, "bytes");
         return PAGConstructor.PAGFile.load(buffer);
       })
       .then(function (pagFile) {
+        if (!pagFile) return;
+        if (gen !== pagLoadGen) { console.log("PAG 请求已过期，丢弃"); return; }
         console.log("PAGFile 加载成功, 尺寸:", pagFile.width(), "x", pagFile.height(), ", 帧数:", pagFile.numFrames ? pagFile.numFrames() : "unknown");
         fallback.style.display = "none";
         canvas.style.display = "block";
@@ -325,6 +341,11 @@
         return PAGConstructor.PAGView.init(pagFile, canvas);
       })
       .then(function (view) {
+        if (!view) return;
+        if (gen !== pagLoadGen) {
+          try { view.destroy(); } catch (e) {}
+          return;
+        }
         console.log("PAGView 初始化成功, view:", view ? "有效" : "无效");
         pagView = view;
         // 播放一次，不循环
@@ -333,6 +354,8 @@
         pagView.addListener("onAnimationEnd", function () {
           console.log("PAG 动画播放结束，切换下一个");
           switchPAGForEmotion(currentEmotion);
+          // 动画切换后重新检查当前情绪的呼吸提示
+          updateBreathingPrompt(currentEmotion);
         });
         console.log("开始播放 PAG...");
         return pagView.play();
@@ -483,10 +506,11 @@
     }
 
     // 监听新音频就绪
-    newAudio.addEventListener("canplaythrough", function onReady() {
+    var onReady = function onReady() {
       newAudio.removeEventListener("canplaythrough", onReady);
       startCrossfade();
-    });
+    };
+    newAudio.addEventListener("canplaythrough", onReady);
 
     // 如果旧音频没有在播放，直接播放新的
     if (oldAudio.paused) {
@@ -570,6 +594,9 @@
     var emotion = EMOTION_MAP[value];
     if (!emotion) return;
 
+    // README: 如果新情绪和上一情绪相同，则不处理
+    if (value === currentEmotion) return;
+
     currentEmotion = value;
     emotionIcon.textContent = emotion.icon;
     if (insightIcon) insightIcon.textContent = emotion.icon;
@@ -605,9 +632,8 @@
 
   if (insightButton) {
     insightButton.addEventListener("click", function () {
-      if (currentEmotion === "default") {
-        showCenterToast("暂无有效数据");
-      }
+      var msg = EMOTION_MAP[currentEmotion] && EMOTION_MAP[currentEmotion].insight;
+      showCenterToast(msg || "暂无有效数据");
     });
   }
 
