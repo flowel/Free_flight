@@ -13,3 +13,10 @@ Thumbs.db
 .idea/
 
 .reasonix/
+
+# Android
+.gradle/
+local.properties
+*/build/
+build/
+captures/
