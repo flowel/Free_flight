@@ -58,6 +58,24 @@ Before committing any change:
 - For `fly_demo/`: verify the web demo loads and runs correctly in a browser.
 - For `android_app/`: verify the Android project builds and runs on device/emulator.
 
+### Windows Android environment
+
+This workspace's Android toolchain is intentionally kept under `D:\android`. Do not rely on a system-wide Java installation or search for a JDK on each task.
+
+- JDK / `JAVA_HOME`: `D:\android\Android Studio\jbr`
+- Android SDK root: `D:\android\SDK`
+- Gradle's cached JDK may also exist at `D:\android\.gradle\jdks`, but the Android Studio JBR path above is the default.
+
+Before any Gradle command in PowerShell, set the process-local environment explicitly:
+
+```powershell
+$env:JAVA_HOME = 'D:\android\Android Studio\jbr'
+$env:Path = "$env:JAVA_HOME\bin;$env:Path"
+.\gradlew.bat testDebugUnitTest
+```
+
+Keep this convention in any new Android repository documentation; do not write machine-specific secrets into the repository.
+
 ## Conflict resolution
 
 - UI/UX changes → verify against product spec before implementing.
